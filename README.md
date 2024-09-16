@@ -30,7 +30,7 @@ pip install PyQt6 gitpython paramiko
 python main.py
 ```
 ### Wersja skompilowana
-Nie wymaga konfiguracji, wystarczy pobrać aplikacje (cały folder exe) i ją włączyć.
+Nie wymaga konfiguracji, wystarczy pobrać aplikacje (cały folder skompresowany exe.zip) rozpakować ją i włączyć.
 
 ## Inne konfiguracje
 Aby aplikacja działała, potrzebna jest konfiguracja repozytorium git (np. na githubie). Aplikacja przy pierwszym włączeniu zapyta o ścieżkę folderu w chmurze. Należy wkleić tam ścieżkę HTTPS lub SSH. Dla prywatnego repozytorium konieczne jest użycie ścieżki ssh oraz skonfigurowanie klucza SSH. Do zdalnego repozytorium dodaje się klucz publiczny (w ustawieniach kategoria Deploy Keys), klucz musi mieć uprawnienia READ/WRITE. Aplikacja umożliwia stworzenie tego klucza. Konieczne jest dodanie klucza publicznego do repozytorium zaraz po otrzymaniu klucza publicznego. 

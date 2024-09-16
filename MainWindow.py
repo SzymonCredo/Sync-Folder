@@ -139,15 +139,24 @@ class MainWindow(QMainWindow):
         box = QMessageBox(icon, title, text)
         relButtons = []
         for button in buttons:
-
             if type(button) == QMessageBox.StandardButton:
-                box.addButton(button)
-                relButtons.append(button)
-            else:
+                if button == QMessageBox.StandardButton.Yes:
+                    real_button = box.addButton("Tak", QMessageBox.ButtonRole.YesRole)
+                elif button == QMessageBox.StandardButton.No:
+                    real_button = box.addButton("Nie", QMessageBox.ButtonRole.NoRole)
+                elif button == QMessageBox.StandardButton.Ok:
+                    real_button = box.addButton("Ok", QMessageBox.ButtonRole.AcceptRole)
+                else:
+                    real_button = box.addButton("Anuluj", QMessageBox.ButtonRole.RejectRole)
+                relButtons.append(real_button)
+                continue
+            elif type(button) != QMessageBox.StandardButton:
                 real_button = box.addButton(button[0], button[1])
                 if len(button) == 3 and button[2]:
                     box.setDefaultButton(real_button)
                 relButtons.append(real_button)
+
+
         res = box.exec()
         if box.clickedButton():
             self.program.gui_response = relButtons.index(box.clickedButton())

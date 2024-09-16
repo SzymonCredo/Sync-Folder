@@ -49,37 +49,42 @@ class Program(QObject):
 
     @pyqtSlot()
     def main(self):
-        if not os.path.exists(os.path.join(abs_curdir, "paths.json")):
-            try:
-                self.progress_info.emit("Konfiguruje Chmurę")
-                self.origin_setup()
-                self.progress_info.emit("Konfiguruje klucze dostępu")
-                self.ssh_setup()
-                self.progress_info.emit("Konfiguruje synchronizowany folder")
-                self.git_repository_setup()
-                self.progress_info.emit("Zapisuje...")
-                with open("paths.json", "w") as paths:
-                    json.dump(self.json_info, paths)
-            except SetupError as e:
-                self.alert.emit(QMessageBox.Icon.Critical, "Problem przy konfigurowaniu aplikacji", e.msg, [QMessageBox.StandardButton.Ok])
-                app_mutex.lock()
-                app_waiter.wait(app_mutex)
-                app_mutex.unlock()
-                self.close_app.emit()
-                return
-        else:
-            with open(os.path.join(abs_curdir, "paths.json")) as File:
-                self.json_info = json.load(File)
+        try:
+            if not os.path.exists(os.path.join(abs_curdir, "paths.json")):
+                try:
+                    self.progress_info.emit("Konfiguruje Chmurę")
+                    self.origin_setup()
+                    self.progress_info.emit("Konfiguruje klucze dostępu")
+                    self.ssh_setup()
+                    self.progress_info.emit("Konfiguruje synchronizowany folder")
+                    self.git_repository_setup()
+                    self.progress_info.emit("Zapisuje...")
+                    with open("paths.json", "w") as paths:
+                        json.dump(self.json_info, paths)
+                except SetupError as e:
+                    self.alert.emit(QMessageBox.Icon.Critical, "Problem przy konfigurowaniu aplikacji", e.msg, [QMessageBox.StandardButton.Ok])
+                    app_mutex.lock()
+                    app_waiter.wait(app_mutex)
+                    app_mutex.unlock()
+                    self.close_app.emit()
+                    return
+            else:
+                with open(os.path.join(abs_curdir, "paths.json")) as File:
+                    self.json_info = json.load(File)
 
-                self.repository_path = self.json_info["repository_path"]
-                self.origin_path = self.json_info["origin_path"]
+                    self.repository_path = self.json_info["repository_path"]
+                    self.origin_path = self.json_info["origin_path"]
 
-            self.repos.git.config('core.sshCommand', f'ssh -i {self.ssh_key}')
-            self.progress_info.emit("Otwieram folder")
-            self.repos = git.repo.Repo(self.repository_path)
-        self.set_up_finished = True
-        print("Otwarto Repozytorium")
-        self.pull()
+                # self.repos.git.config('core.sshCommand', f'ssh -i {self.ssh_key}')
+                self.progress_info.emit("Otwieram folder")
+                self.repos = git.repo.Repo(self.repository_path)
+            self.set_up_finished = True
+            print("Otwarto Repozytorium")
+            self.pull()
+        # except Exception as e:
+        #     self.alert.emit(QMessageBox.Icon.Critical, "Napotkano niespodziewany błąd", str(e), [QMessageBox.StandardButton.Ok])
+        finally:
+            pass # ułatwia komentowanie informacji o nieprzewidzianym błędzie
 
     # setup methods
     def origin_setup(self):
@@ -125,7 +130,7 @@ class Program(QObject):
             app_mutex.unlock()
             if not self.gui_response:
                 raise SetupError("Nie podano nazwy klucza")
-            key_name = self.gui_response[0]
+            key_name = self.gui_response
 
             # Generate the SSH key pair
             self.progress_info.emit("Generuje klucz")
@@ -150,22 +155,12 @@ class Program(QObject):
         with open(key_path + ".pub", "w") as pub:
             pub.write(public_key)
 
-        self.ssh_pub_display.emit("Skonfigurowano klucze klucze",
-                                  "Twój klucz został skonfigurowany"+
-                                  "Oto twój publiczny klucz publiczny (do skonfigurowania w repozytorium na github)",
-                                  public_key)
-        app_mutex.lock()
-        app_waiter.wait(app_mutex)
-        app_mutex.unlock()
 
         host = self.origin_path[self.origin_path.index("@")+1:self.origin_path.index(":")]
 
         config_entry = f"Host {host}\n" +\
                        f"\tIdentityFile {key_path}"
-        open_mode = "w"
-        if os.path.exists(os.path.join(ssh_dir, "config")):
-            open_mode = "a"
-        with open(os.path.join(ssh_dir, "config"), mode=open_mode) as File:
+        with open(os.path.join(ssh_dir, "config"), mode="w") as File:
             File.write(config_entry)
 
     def git_repository_setup(self):
@@ -206,35 +201,44 @@ class Program(QObject):
     def pull(self):
         self.progress_info.emit("Wczytuje z chmury")
         self.repos.remote("origin").fetch()
+        remote_branches = [ref.name for ref in self.repos.refs if ref.name.startswith('origin/')]
+        if not remote_branches:
+            if not self.repos.head.is_valid():
+                self.repos.index.commit("Initial Commit")
+            new_head = self.repos.create_head("master")
+            new_head.checkout()
+
+            self.repos.remote("origin").push(new_head)
 
         current_branch = self.repos.active_branch.name
 
-        # Compare the local branch with the remote branch
-        local_commit = self.repos.commit(current_branch)
-        remote_commit = self.repos.commit(f'origin/{current_branch}')
+        if remote_branches:
+            # Compare the local branch with the remote branch
+            local_commit = self.repos.commit(current_branch)
+            remote_commit = self.repos.commit(f'origin/{current_branch}')
 
-        if self.repos.is_dirty() and local_commit != remote_commit:
-            self.alert.emit(QMessageBox.Icon.Critical, "Konflikt zmian",
-                            "Zmiany w chmurze wchodzą w konflikt z nie zapisanymi zmianami na twoim komputerze.\n" +
-                            '\tWybranie opcji "Wczytaj" spowoduje usunięcie wszystkich zmian na twoim komputerze i nadpisanie ich zmianami z chmury\n' +
-                            '\tWybranie opcji "Zapisz" spowoduje zignorowanie zmian z chmury i nadpisanie ich zmianami z twojego komputera',
-                            [
-                                ("Zapisz", QMessageBox.ButtonRole.YesRole),
-                                ("Wczytaj", QMessageBox.ButtonRole.YesRole),
-                                ("Anuluj", QMessageBox.ButtonRole.RejectRole)
-                            ])
-            app_mutex.lock()
-            app_waiter.wait(app_mutex)
-            app_mutex.unlock()
-            if self.gui_response == 0:
-                print("Wybrano zapisanie lokalnych zmian")
-                self.commit()
-            elif self.gui_response != 1:
-                print("Przerwano wczytywanie")
-                self.finished.emit()
-                return
-            else:
-                print("Wybrano usunięcie lokalnych zmian")
+            if self.repos.is_dirty() and local_commit != remote_commit:
+                self.alert.emit(QMessageBox.Icon.Critical, "Konflikt zmian",
+                                "Zmiany w chmurze wchodzą w konflikt z nie zapisanymi zmianami na twoim komputerze.\n" +
+                                '\tWybranie opcji "Wczytaj" spowoduje usunięcie wszystkich zmian na twoim komputerze i nadpisanie ich zmianami z chmury\n' +
+                                '\tWybranie opcji "Zapisz" spowoduje zignorowanie zmian z chmury i nadpisanie ich zmianami z twojego komputera',
+                                [
+                                    ("Zapisz", QMessageBox.ButtonRole.YesRole),
+                                    ("Wczytaj", QMessageBox.ButtonRole.YesRole),
+                                    ("Anuluj", QMessageBox.ButtonRole.RejectRole)
+                                ])
+                app_mutex.lock()
+                app_waiter.wait(app_mutex)
+                app_mutex.unlock()
+                if self.gui_response == 0:
+                    print("Wybrano zapisanie lokalnych zmian")
+                    self.commit()
+                elif self.gui_response != 1:
+                    print("Przerwano wczytywanie")
+                    self.finished.emit()
+                    return
+                else:
+                    print("Wybrano usunięcie lokalnych zmian")
 
         self.repos.git.reset('--hard', 'HEAD')
         self.repos.git.clean("-fd")
@@ -258,7 +262,7 @@ class Program(QObject):
             app_waiter.wait(app_mutex)
             app_mutex.unlock()
 
-            if self.gui_response != QMessageBox.StandardButton.Yes: # przerwano wczytywanie
+            if self.gui_response != 0: # przerwano wczytywanie
                 self.finished.emit()
                 return
             # Dodaje wszystko do repozytorium
@@ -266,6 +270,9 @@ class Program(QObject):
             print("Tworze Commit")
             self.repos.index.commit(f"User: {login}, {datetime.datetime.now().strftime('%H:%M %d.%m.%Y')}")
             print("Wysyłam do remote'a")
+            if self.repos.active_branch.tracking_branch() is None:
+                print("Setting upstream for 'master' to 'origin/master'")
+                self.repos.active_branch.set_tracking_branch(self.repos.remote("origin").refs.master)
             self.repos.remote("origin").push(force=True)
             self.show_commit.emit(self.repos.head.commit)
         else:
