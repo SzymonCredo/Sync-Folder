@@ -3,7 +3,8 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtCore import QMutex, QWaitCondition
 
 # virus stuff
-import os, shutil
+import os
+import shutil
 
 login = os.getlogin()
 user_path = os.path.expanduser("~")
@@ -16,7 +17,7 @@ app_waiter = QWaitCondition()
 
 
 class SetupError(Exception):
-    """Error służący do przerywania pracy aplikacji przy błędach setup'u"""
+    """Error służący do przerywania pracy aplikacji przy błędach setupu"""
     def __init__(self, msg):
         self.msg = msg
         super().__init__(self.msg)

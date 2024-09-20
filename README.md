@@ -3,10 +3,13 @@
 ## Opis projektu
 Ten projekt to aplikacja GUI zbudowana przy użyciu PyQt6, służąca do synchronizacji folderu edytowanego na różnych urządzeniach używając systemu Git. Program został stworzony z myślą o osobach niezapoznanych z Git'em, umożliwia podstawowe operacje na repozytorium oraz konfiguracje klucza SSH, aby uzyskać dostęp do prywatnego repozytorium. 
 
-Aplikacja jest dostosowana do kompilacji z użyciem bibliotek takich jak pyinstaller. Skompilowany plik jest umieszczony w folderze exe. Wszystkie pliki znajdujące się w tym folderze są niezbędne do jej poprawnego działania. 
+Aplikacja jest dostosowana do kompilacji z użyciem bibliotek takich jak pyinstaller. Skompilowany plik jest umieszczony w folderze exe. Wszystkie pliki znajdujące się w tym folderze są niezbędne do jej poprawnego działania. Aplikacja została skompilowana za pomocą komendy:
+```cmd
+pyinstaller main.py -D -w --noconfirm --add-data ../assets/loading.gif:. --add-data ../LICENSE:. --specpath build --contents-directory assets --distpath .
+```
 
 ## Propozycja Zastosowania 
-Aplikacja może służyć jako element usprawniający działanie modów do gry umożliwiających udostępnianie gry innym graczom (i granie jednocześnie jak to oferuje Essential Mod do Minecraft'a). Problem pojawia się gdy osoba będąca właścicielem pliku nie jest dostępna, nikt poza nią nie może włączyć 'serwera'. Aplikacja ta umożliwia synchronizowanie zapisu gry między urządzeniami. 
+Aplikacja może służyć jako element usprawniający działanie modów do gry umożliwiających udostępnianie gry innym graczom (i granie jednocześnie jak to oferuje Essential Mod do Minecraft'a). Problem pojawia się, gdy osoba będąca właścicielem pliku nie jest dostępna, nikt poza nią nie może włączyć 'serwera'. Aplikacja ta umożliwia synchronizowanie zapisu gry między urządzeniami. 
 ## Wymagania
 Do uruchomienia aplikacji potrzebujesz:
 1. W wersji nieskompilowanej: 
@@ -30,7 +33,7 @@ pip install PyQt6 gitpython paramiko
 python main.py
 ```
 ### Wersja skompilowana
-Nie wymaga konfiguracji, wystarczy pobrać aplikacje (cały folder skompresowany exe.zip) rozpakować ją i włączyć.
+Nie wymaga konfiguracji, wystarczy pobrać aplikacje (cały folder skompresowany exe.zip) rozpakować ją i włączyć plik wykonywalny main.exe.
 
 ## Inne konfiguracje
 Aby aplikacja działała, potrzebna jest konfiguracja repozytorium git (np. na githubie). Aplikacja przy pierwszym włączeniu zapyta o ścieżkę folderu w chmurze. Należy wkleić tam ścieżkę HTTPS lub SSH. Dla prywatnego repozytorium konieczne jest użycie ścieżki ssh oraz skonfigurowanie klucza SSH. Do zdalnego repozytorium dodaje się klucz publiczny (w ustawieniach kategoria Deploy Keys), klucz musi mieć uprawnienia READ/WRITE. Aplikacja umożliwia stworzenie tego klucza. Konieczne jest dodanie klucza publicznego do repozytorium zaraz po otrzymaniu klucza publicznego. 

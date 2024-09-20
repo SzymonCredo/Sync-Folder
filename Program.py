@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QEventLoop, QWaitCondition
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 # virus stuff
 import os, shutil, ctypes
@@ -49,42 +49,36 @@ class Program(QObject):
 
     @pyqtSlot()
     def main(self):
-        try:
-            if not os.path.exists(os.path.join(abs_curdir, "paths.json")):
-                try:
-                    self.progress_info.emit("Konfiguruje Chmurę")
-                    self.origin_setup()
-                    self.progress_info.emit("Konfiguruje klucze dostępu")
-                    self.ssh_setup()
-                    self.progress_info.emit("Konfiguruje synchronizowany folder")
-                    self.git_repository_setup()
-                    self.progress_info.emit("Zapisuje...")
-                    with open("paths.json", "w") as paths:
-                        json.dump(self.json_info, paths)
-                except SetupError as e:
-                    self.alert.emit(QMessageBox.Icon.Critical, "Problem przy konfigurowaniu aplikacji", e.msg, [QMessageBox.StandardButton.Ok])
-                    app_mutex.lock()
-                    app_waiter.wait(app_mutex)
-                    app_mutex.unlock()
-                    self.close_app.emit()
-                    return
-            else:
-                with open(os.path.join(abs_curdir, "paths.json")) as File:
-                    self.json_info = json.load(File)
+        if not os.path.exists(os.path.join(abs_curdir, "paths.json")):
+            try:
+                self.progress_info.emit("Konfiguruje Chmurę")
+                self.origin_setup()
+                self.progress_info.emit("Konfiguruje klucze dostępu")
+                self.ssh_setup()
+                self.progress_info.emit("Konfiguruje synchronizowany folder")
+                self.git_repository_setup()
+                self.progress_info.emit("Zapisuje...")
+                with open("paths.json", "w") as paths:
+                    json.dump(self.json_info, paths)
+            except SetupError as e:
+                self.alert.emit(QMessageBox.Icon.Critical, "Problem przy konfigurowaniu aplikacji", e.msg, [QMessageBox.StandardButton.Ok])
+                app_mutex.lock()
+                app_waiter.wait(app_mutex)
+                app_mutex.unlock()
+                self.close_app.emit()
+                return
+        else:
+            with open(os.path.join(abs_curdir, "paths.json")) as File:
+                self.json_info = json.load(File)
 
-                    self.repository_path = self.json_info["repository_path"]
-                    self.origin_path = self.json_info["origin_path"]
+                self.repository_path = self.json_info["repository_path"]
+                self.origin_path = self.json_info["origin_path"]
 
-                # self.repos.git.config('core.sshCommand', f'ssh -i {self.ssh_key}')
-                self.progress_info.emit("Otwieram folder")
-                self.repos = git.repo.Repo(self.repository_path)
-            self.set_up_finished = True
-            print("Otwarto Repozytorium")
-            self.pull()
-        # except Exception as e:
-        #     self.alert.emit(QMessageBox.Icon.Critical, "Napotkano niespodziewany błąd", str(e), [QMessageBox.StandardButton.Ok])
-        finally:
-            pass # ułatwia komentowanie informacji o nieprzewidzianym błędzie
+            self.progress_info.emit("Otwieram folder")
+            self.repos = git.repo.Repo(self.repository_path)
+        self.set_up_finished = True
+        print("Otwarto Repozytorium")
+        self.pull()
 
     # setup methods
     def origin_setup(self):
@@ -178,7 +172,6 @@ class Program(QObject):
                 ctypes.windll.kernel32.SetFileAttributesW(tmp_folder, 0x02)  # set folder to be hidden
         else:
             raise SetupError("Nie podano ścieżki folderu")
-
         self.progress_info.emit("Wczytuje folder z chmury")
 
         try:
@@ -187,9 +180,6 @@ class Program(QObject):
             with open(os.path.join(user_path, ".ssh", "known_hosts"), mode="w") as File:
                 File.writelines(["github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk="])
             self.repos = git.repo.Repo.clone_from(self.origin_path, repository_path)
-
-        # self.repos.git.config('core.sshCommand', f'ssh -i {self.}')
-
 
         # copy moved files if there are any
         if os.path.exists(os.path.join(abs_curdir, "tmp_world_files")):
@@ -212,12 +202,13 @@ class Program(QObject):
 
         current_branch = self.repos.active_branch.name
 
-        if remote_branches:
+        if self.repos.is_dirty(untracked_files=True):
+            print("Repos is dirty")
             # Compare the local branch with the remote branch
             local_commit = self.repos.commit(current_branch)
             remote_commit = self.repos.commit(f'origin/{current_branch}')
-
-            if self.repos.is_dirty() and local_commit != remote_commit:
+            if local_commit != remote_commit:
+                print("Konflikt zmian obustronny")
                 self.alert.emit(QMessageBox.Icon.Critical, "Konflikt zmian",
                                 "Zmiany w chmurze wchodzą w konflikt z nie zapisanymi zmianami na twoim komputerze.\n" +
                                 '\tWybranie opcji "Wczytaj" spowoduje usunięcie wszystkich zmian na twoim komputerze i nadpisanie ich zmianami z chmury\n' +
@@ -239,6 +230,19 @@ class Program(QObject):
                     return
                 else:
                     print("Wybrano usunięcie lokalnych zmian")
+            else:
+                print("Konflikt zmian jednostronny")
+                self.alert.emit(QMessageBox.Icon.Warning, "Wykryto zmiany w folderze",
+                                "W folderze znajdują się zmiany. Kontynuowanie wczytywania spowoduje usunięcie ich.  Czy chcesz kontynuować?",
+                                [("Tak", QMessageBox.ButtonRole.YesRole), ("Anuluj", QMessageBox.ButtonRole.RejectRole)])
+                app_mutex.lock()
+                app_waiter.wait(app_mutex)
+                app_mutex.unlock()
+                if self.gui_response != 0:
+                    print("Przerwano czywytanie")
+                    self.show_commit.emit(self.repos.head.commit)
+                    self.finished.emit()
+                    return
 
         self.repos.git.reset('--hard', 'HEAD')
         self.repos.git.clean("-fd")
@@ -269,7 +273,7 @@ class Program(QObject):
             self.repos.git.add(A=True)
             print("Tworze Commit")
             self.repos.index.commit(f"User: {login}, {datetime.datetime.now().strftime('%H:%M %d.%m.%Y')}")
-            print("Wysyłam do remote'a")
+            print("Wysyłam do remote")
             if self.repos.active_branch.tracking_branch() is None:
                 print("Setting upstream for 'master' to 'origin/master'")
                 self.repos.active_branch.set_tracking_branch(self.repos.remote("origin").refs.master)

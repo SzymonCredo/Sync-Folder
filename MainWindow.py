@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(self.loading_main)
         main_layout.addWidget(self.loading_main, 0, 0)
 
-        self.loading_animation = QMovie(path.join(abs_curdir, "loading.gif"))
+        self.loading_animation = QMovie(path.join(abs_curdir,"assets/loading.gif"))
         self.loading_animation.setScaledSize(QSize(50, 50))
 
         indicator = QLabel()
